@@ -9,6 +9,7 @@ bool debug = true;
 TString Cycle_name;
 // == Call all needed maps
 map<TString, TH1*> maphist;
+map<TString, TH1D* > maphist_TH1D;
 map<TString, TH2D*> maphist2D;
 map<TString, TGraph*> map_gr;
 map<TString, TGraphAsymmErrors*> map_asym_gr;
@@ -35,6 +36,27 @@ TH1F * GetHist(TString hname){
 
   return h;
 
+}
+
+TH1D * GetHist1D(TString histname){
+
+  TH1D *h = NULL;
+  std::map<TString, TH1D*>::iterator mapit = maphist_TH1D.find(histname);
+  if(mapit != maphist_TH1D.end()) return mapit->second;
+
+  return h;
+
+}
+
+void FillHist(TString histname, double value, double weight, int n_bin, double x_min, double x_max){
+  TH1D *this_hist = GetHist1D(histname);
+  if( !this_hist ){
+    this_hist = new TH1D(histname, "", n_bin, x_min, x_max);
+    this_hist->SetDirectory(NULL);
+    maphist_TH1D[histname] = this_hist;
+  }
+
+  this_hist->Fill(value, weight);
 }
 
 TGraphAsymmErrors* hist_to_graph(TH1D* hist, bool YErrorZero=false){
