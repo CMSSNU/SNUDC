@@ -6,7 +6,7 @@
 #include <TStyle.h>
 #include <TCanvas.h>
 
-TString WORKING_DIR = getenv("PLOTTER_WORKING_DIR");
+TString WORKING_DIR = getenv("SNUDC_WORKING_DIR");
 TString root_file_path = WORKING_DIR+"/rootfiles/data/";
 TString root_filename = "runA_partial.root";
 TString filename = root_file_path + root_filename;
@@ -26,7 +26,7 @@ SNUDC::SNUDC(TTree *tree) : fChain(0)
 
 void Draw_Hist(TString histname){
 
-  TString ENV_PLOT_PATH = getenv("PLOT_PATH");
+  TString ENV_PLOT_PATH = getenv("SNUDC_PLOT_PATH");
   TString base_plotpath = ENV_PLOT_PATH + "/";
 
   TCanvas *c1 = new TCanvas(histname, histname, 600, 600);
@@ -41,7 +41,7 @@ void Draw_Hist(TString histname){
 
 void Draw_Hist_Cumulative(TString histname){
 
-  TString ENV_PLOT_PATH = getenv("PLOT_PATH");
+  TString ENV_PLOT_PATH = getenv("SNUDC_PLOT_PATH");
   TString base_plotpath = ENV_PLOT_PATH + "/";
 
   TCanvas *c2 = new TCanvas(histname + "_Cumulative", histname + "_Cumulative", 600, 600);
