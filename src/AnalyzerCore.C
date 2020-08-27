@@ -1,65 +1,30 @@
-#ifndef mylib_h
-#define mylib_h
+#ifndef AnalyzerCore_cxx
+#define AnalyzerCore_cxx
 
-ofstream outfile;
+#include "AnalyzerCore.h"
 
-using namespace std;
-// == Debugging Mode
-bool debug = true;
-TString Cycle_name;
-// == Call all needed maps
-map<TString, TH1*> maphist;
-map<TString, TH1D* > maphist_TH1D;
-map<TString, TH2D*> maphist2D;
-map<TString, TGraph*> map_gr;
-map<TString, TGraphAsymmErrors*> map_asym_gr;
-map<TString, TFile*> mapfile;
-map<TString, TCanvas*> mapcanvas;
-map<TString, TPad*> mappad;
-map<TString, THStack*> maphstack;
-map<TString, TLegend*> maplegend;
-map<TString, TH1F*> mapfunc;
-map<TString, double> map_overflow;
-map<TString, TLine*> mapline;
-map<TString, TKey*> maphistcheck;
-map<TString, TList*> maplist;
-map<TString, std::vector<double> > map_bin_vector;
-map<TString, std::vector<TString> > map_sample_names;
-map<TString, std::vector<double> > map_syst_array;
-map<TString, std::vector<double> > map_syst_table;
+TH1 * AnalyzerCore::GetHist(TString histname){
 
-TH1F * GetHist(TString hname){
-
-  TH1F *h = NULL;
-  std::map<TString, TH1F*>::iterator mapit = mapfunc.find(hname);
-  if(mapit != mapfunc.end()) return mapit-> second;
+  TH1 *h = NULL;
+  std::map<TString, TH1*>::iterator mapit = maphist.find(histname);
+  if(mapit != maphist.end()) return mapit->second;
 
   return h;
 
 }
 
-TH1D * GetHist1D(TString histname){
-
-  TH1D *h = NULL;
-  std::map<TString, TH1D*>::iterator mapit = maphist_TH1D.find(histname);
-  if(mapit != maphist_TH1D.end()) return mapit->second;
-
-  return h;
-
-}
-
-void FillHist(TString histname, double value, double weight, int n_bin, double x_min, double x_max){
-  TH1D *this_hist = GetHist1D(histname);
+void AnalyzerCore::FillHist(TString histname, double value, double weight, int n_bin, double x_min, double x_max){
+  TH1 *this_hist = GetHist(histname);
   if( !this_hist ){
     this_hist = new TH1D(histname, "", n_bin, x_min, x_max);
     this_hist->SetDirectory(NULL);
-    maphist_TH1D[histname] = this_hist;
+    maphist[histname] = this_hist;
   }
 
   this_hist->Fill(value, weight);
 }
 
-TGraphAsymmErrors* hist_to_graph(TH1D* hist, bool YErrorZero=false){
+TGraphAsymmErrors* AnalyzerCore::hist_to_graph(TH1D* hist, bool YErrorZero){
 
   TH1::SetDefaultSumw2(true);
 
@@ -87,7 +52,7 @@ TGraphAsymmErrors* hist_to_graph(TH1D* hist, bool YErrorZero=false){
 
 }
 
-TGraphAsymmErrors* hist_to_graph(TH1D* hist, int n_skip_x_left){
+TGraphAsymmErrors* AnalyzerCore::hist_to_graph(TH1D* hist, int n_skip_x_left){
 
   TH1::SetDefaultSumw2(true);
 
@@ -111,7 +76,7 @@ TGraphAsymmErrors* hist_to_graph(TH1D* hist, int n_skip_x_left){
 
 }
 
-TGraphAsymmErrors* hist_to_graph(TH1D* hist, int n_skip_x_left, int n_x_shift, int i_x_shift){
+TGraphAsymmErrors* AnalyzerCore::hist_to_graph(TH1D* hist, int n_skip_x_left, int n_x_shift, int i_x_shift){
 
   TH1::SetDefaultSumw2(true);
 
@@ -142,7 +107,7 @@ TGraphAsymmErrors* hist_to_graph(TH1D* hist, int n_skip_x_left, int n_x_shift, i
 }
 
 
-TGraphAsymmErrors* GraphSubtract(TGraphAsymmErrors *a, TGraphAsymmErrors *b, bool Rel){
+TGraphAsymmErrors* AnalyzerCore::GraphSubtract(TGraphAsymmErrors *a, TGraphAsymmErrors *b, bool Rel){
 
   //==== do a-b
 
@@ -169,7 +134,7 @@ TGraphAsymmErrors* GraphSubtract(TGraphAsymmErrors *a, TGraphAsymmErrors *b, boo
 
 }
 
-void RemoveLargeError(TGraphAsymmErrors *a){
+void AnalyzerCore::RemoveLargeError(TGraphAsymmErrors *a){
 
   int NX = a->GetN();
 
@@ -189,7 +154,7 @@ void RemoveLargeError(TGraphAsymmErrors *a){
 
 }
 
-void ScaleGraph(TGraphAsymmErrors *a, double c){
+void AnalyzerCore::ScaleGraph(TGraphAsymmErrors *a, double c){
 
   int NX = a->GetN();
 
@@ -209,7 +174,7 @@ void ScaleGraph(TGraphAsymmErrors *a, double c){
 
 }
 
-double GetMaximum(TH1D* hist){
+double AnalyzerCore::GetMaximum(TH1D* hist){
 
   TAxis *xaxis = hist->GetXaxis();
 
@@ -224,7 +189,7 @@ double GetMaximum(TH1D* hist){
 
 }
 
-double GetMaximum(TGraphAsymmErrors *a){
+double AnalyzerCore::GetMaximum(TGraphAsymmErrors *a){
 
   int NX = a->GetN();
 
@@ -247,21 +212,20 @@ double GetMaximum(TGraphAsymmErrors *a){
 
 }
 
-TDirectory *MakeTemporaryDirectory(){
+TDirectory* AnalyzerCore::MakeTemporaryDirectory(){
 
   gROOT->cd();
   TDirectory* tempDir = 0;
   int counter = 0;
   while (not tempDir) {
     // First, let's find a directory name that doesn't exist yet:
-    std::stringstream dirname;
-    dirname << "HNCommonLeptonFakes_%i" << counter;
-    if (gROOT->GetDirectory((dirname.str()).c_str())) {
+    TString dirname=Form("HNCommonLeptonFakes_%d",counter);
+    if (gROOT->GetDirectory(dirname) ){
       ++counter;
       continue;
     }
     // Let's try to make this directory:
-    tempDir = gROOT->mkdir((dirname.str()).c_str());
+    tempDir = gROOT->mkdir(dirname);
 
   }
 
