@@ -13,9 +13,9 @@ which root > /dev/null || {
 echo "Using $(which root)"
 
 export SNUDC_WORKING_DIR=$(cd "$(dirname "${BASH_ARGV[0]}")"; pwd)
-export SNUDC_FILE_PATH=$SNUDC_WORKING_DIR/rootfiles/
+export SNUDC_DATA_PATH=$SNUDC_WORKING_DIR/rootfiles/
 export SNUDC_PLOT_PATH=$SNUDC_WORKING_DIR/plots/
-export ROOT_INCLUDE_PATH=$ROOT_INCLUDE_PATH:$SNUDC_WORKING_DIR/include/:$SNUDC_WORKING_DIR/src/
+export ROOT_INCLUDE_PATH=$SNUDC_WORKING_DIR/include:$ROOT_INCLUDE_PATH
 export LD_LIBRARY_PATH=$SNUDC_WORKING_DIR/lib:$LD_LIBRARY_PATH
 
 source $SNUDC_WORKING_DIR/bin/BashColorSets.sh

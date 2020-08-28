@@ -28,8 +28,8 @@ public :
    Int_t           run;
    Int_t           event;
    static const int NWIRES=192;
-   vector<int>* wires[NWIRES];
-   TBranch*     b_wires[NWIRES];
+   vector<int>* fTDC[NWIRES];
+   TBranch*     bTDC[NWIRES];
 
    // List of branches
    TBranch        *b_run;   //!
@@ -39,6 +39,9 @@ public :
    virtual ~SNUDCTree();
    virtual Int_t    Cut(Long64_t entry);
    virtual Int_t    GetEntry(Long64_t entry);
+   virtual long GetEntries();
+   virtual vector<int>* GetTDC(int n) const;
+   virtual vector<int>* GetTDC(TString wirename) const;
    static TString GetWireName(int n);
    static int GetWireNumber(TString wirename);
      

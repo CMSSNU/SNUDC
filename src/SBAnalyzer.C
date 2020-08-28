@@ -4,10 +4,11 @@
 #include "SBAnalyzer.h"
 
 SBAnalyzer::SBAnalyzer(){
-  TString WORKING_DIR = getenv("SNUDC_WORKING_DIR");
-  TString filename=WORKING_DIR+"/rootfiles/data/runA0.root";
-  fChain->Add(filename);
-  Init();
+  SetupConfig("runA");
+  //TString WORKING_DIR = getenv("SNUDC_WORKING_DIR");
+  //TString filename=WORKING_DIR+"/rootfiles/data/runA0.root";
+  //fChain->Add(filename);
+  //Init();
 }
 
 void SBAnalyzer::Draw_Hist(TString histname){
@@ -89,8 +90,8 @@ void SBAnalyzer::Loop()
       if(jentry%100 == 0) cout << jentry << "/" << nentries << " done" << endl;
 
       for(int i = 0; i < NWIRES; i++){
-	if(wires[i]->size() > 0){
-	  FillHist(GetWireName(i)(0,2)+"_TDC", wires[i]->at(0), 1., 3000, 0., 3000.);
+	if(GetTDC(i)->size() > 0){
+	  FillHist(GetWireName(i)(0,2)+"_TDC", GetTDC(i)->at(0), 1., 3000, 0., 3000.);
 	}
       }
    }

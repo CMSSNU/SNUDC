@@ -1,8 +1,6 @@
-ROOTCFLAGS:=$(shell root-config --cflags)
-ROOTLDFLAGS:=$(shell root-config --ldflags)
-ROOTLIBS:=$(shell root-config --libs)
-ROOTGLIBS:=$(shell root-config --glibs)
-
+ifndef SNUDC_WORKING_DIR
+$(error SNUDC_WORKING_DIR is undefined. Please source setup.sh ..)
+endif
 MKARCH := $(ROOTSYS)/etc/Makefile.arch
 include $(MKARCH)
 
@@ -23,13 +21,15 @@ OBJ_FILES=$(patsubst $(SRC_DIR)/%.C,$(OBJ_DIR)/%.o,$(SRC_FILES))
 
 CXXFLAGS += -I$(INCLUDE_DIR)
 
-all: $(LIB)
+.PHONY: all clean check-env
+
+all: check-env $(LIB)
 
 $(LIB): $(OBJ_FILES) $(DICT_OBJ)
 	mkdir -p $(LIB_DIR)
 	$(LD) $(SOFLAGS) $(LDFLAGS) $^ -o $@ $(EXPLLINKLIBS)
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.C
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.C $(INCLUDE_DIR)/%.h
 	@echo "compile $<"
 	mkdir -p $(OBJ_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -41,9 +41,14 @@ $(DICT_OBJ): $(DICT)
 
 $(DICT): $(HEADER_FILES) $(LINKDEF)
 	mkdir -p $(LIB_DIR)
-	$(ROOTCLING) -f $@ -rmf $(subst .so,.rootmap,$(LIB)) -rml $(notdir $(LIB)) -rml libTree.so -rml libHist.so -rml libGpad.so -s $(LIB) $(notdir $^)
+	$(ROOTCLING) -f $@ -rmf $(subst .so,.rootmap,$(LIB)) -rml $(notdir $(LIB)) -rml libTree.so -rml libHist.so -rml libGpad.so -rml libGraf3d.so -s $(LIB) $(notdir $^)
 
-clean:
+clean: check-env
 	rm -rf $(OBJ_DIR)
 	rm -f $(DICT)
 	rm -rf $(LIB_DIR)
+
+check-env:
+ifndef SNUDC_WORKING_DIR
+	$(error SNUDC_WORKING_DIR is undefined)
+endif

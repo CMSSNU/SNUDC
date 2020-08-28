@@ -35,6 +35,17 @@ Int_t SNUDCTree::GetEntry(Long64_t entry)
    if (!fChain) return 0;
    return fChain->GetEntry(entry);
 }
+long SNUDCTree::GetEntries(){
+  if(!fChain) return 0;
+  return fChain->GetEntries();
+}
+vector<int>* SNUDCTree::GetTDC(int n) const {
+  if(n<0||n>=NWIRES) return NULL;
+  else return fTDC[n];
+}
+vector<int>* SNUDCTree::GetTDC(TString wirename) const {
+  return GetTDC(GetWireNumber(wirename));
+}
 TString SNUDCTree::GetWireName(int n){
   if(n<0||n>=NWIRES) return "";
   int layer=n/48+1;
@@ -88,10 +99,11 @@ void SNUDCTree::Init()
    // Init() will be called many times when running on PROOF
    // (once per file to be processed).
 
-   // Set object pointer
-  
+  cout<<"[SNUDCTree::Init] initialize branches"<<endl;
+
+  // Set object pointer  
   for(int i=0;i<NWIRES;i++)
-    if(wires[i]) delete wires[i];
+    if(fTDC[i]) delete fTDC[i];
 
   // Set branch addresses and branch pointers
   if (!fChain) return;
@@ -101,7 +113,7 @@ void SNUDCTree::Init()
   fChain->SetBranchAddress("event", &event, &b_event);
 
   for(int i=0;i<192;i++)
-    fChain->SetBranchAddress(GetWireName(i),&wires[i],&b_wires[i]);
+    fChain->SetBranchAddress(GetWireName(i),&fTDC[i],&bTDC[i]);
 
   Notify();
 }
