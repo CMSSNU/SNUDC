@@ -5,8 +5,9 @@
 
 class ResolutionAnalyzer : public AnalyzerCore {
  public:
-  virtual void Loop();
+  virtual void ExecuteEvent();
   virtual bool IsGolden() const;
+  virtual void RemoveInvalidHit();
 };
 
 #endif
