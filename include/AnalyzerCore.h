@@ -53,7 +53,7 @@ class AnalyzerCore : public SNUDCTree {
   map<TString, std::vector<double> > map_syst_table;
 
   virtual void DrawChamber() const;
-  virtual void DrawWires() const;
+  virtual void DrawWires(TString option="") const;
   virtual void FillHist(TString histname, double value, double weight, int n_bin, double x_min, double x_max);
   virtual double FunctionWireOnly(const double* par) const;
   virtual double FunctionTDC(const double* par) const;
@@ -62,6 +62,7 @@ class AnalyzerCore : public SNUDCTree {
   virtual TH1 * GetHist(TString histname) const;
   double GetMaximum(TH1D* hist);
   double GetMaximum(TGraphAsymmErrors *a);
+  virtual int GetTDCCount(TString substr) const;
   virtual Line* GetTrack(TString algorithm="");
   virtual Line* GetWire(int n) const;
   virtual Line* GetWire(TString wirename) const;

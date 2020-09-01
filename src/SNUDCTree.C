@@ -21,12 +21,18 @@ void SNUDCTree::Loop(){
 
 SNUDCTree::SNUDCTree(){
   fChain=new TChain("SNUDC");
+  for(int i=0;i<NWIRES;i++){
+    fTDC[i]=new vector<int>;
+  }
 }
 
 SNUDCTree::~SNUDCTree()
 {
-   if (!fChain) return;
-   delete fChain->GetCurrentFile();
+  if (fChain)
+    delete fChain->GetCurrentFile();
+  for(int i=0;i<NWIRES;i++){
+    if(fTDC[i]) delete fTDC[i];
+  }   
 }
 
 Int_t SNUDCTree::GetEntry(Long64_t entry)
@@ -103,7 +109,7 @@ void SNUDCTree::Init()
 
   // Set object pointer  
   for(int i=0;i<NWIRES;i++)
-    if(fTDC[i]) delete fTDC[i];
+    if(fTDC[i]) fTDC[i]->clear();
 
   // Set branch addresses and branch pointers
   if (!fChain) return;

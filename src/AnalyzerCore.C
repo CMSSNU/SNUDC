@@ -24,16 +24,15 @@ void AnalyzerCore::DrawChamber() const {
   TBRIK* chamber=new TBRIK(Form("chamber_run%d_event%d",run,event),"chamber","",95,260,135);
   chamber->Draw();
 }
-void AnalyzerCore::DrawWires() const {
+void AnalyzerCore::DrawWires(TString option) const {
   for(int i=0;i<NWIRES;i++){
-    if(GetTDC(i)->size()){
-      TPolyLine3D* l=new TPolyLine3D(2);
-      TVector3 start=GetWire(i)->PointWithX(-95);
-      TVector3 end=GetWire(i)->PointWithX(95);
-      l->SetPoint(0,start.X(),start.Y(),start.Z());
-      l->SetPoint(1,end.X(),end.Y(),end.Z());
-      l->Draw();
-    }
+    TPolyLine3D* l=new TPolyLine3D(2);
+    TVector3 start=GetWire(i)->PointWithX(-95);
+    TVector3 end=GetWire(i)->PointWithX(95);
+    l->SetPoint(0,start.X(),start.Y(),start.Z());
+    l->SetPoint(1,end.X(),end.Y(),end.Z());
+    if(option.Contains("all")) l->Draw();
+    else if(GetTDC(i)->size()) l->Draw();
   }
 }
 void AnalyzerCore::FillHist(TString histname, double value, double weight, int n_bin, double x_min, double x_max){
@@ -57,7 +56,7 @@ double AnalyzerCore::FunctionWireOnly(const double *par) const{
   double chi2=0;
   for(int i=0;i<NWIRES;i++){
     if(GetTDC(i)->size())
-      chi2+=pow(track.Distance(*GetWire(i))/sqrt(12)*6,2);
+      chi2+=pow(track.Distance(*GetWire(i))/sqrt(12)/6,2);
   }
   return chi2;
 }
@@ -84,7 +83,7 @@ double AnalyzerCore::FunctionTDC(const double *par) const{
 	l2.SetY(l2.Y()-8.5*length);
       }	
       double val1=pow(track.Distance(l1),2);
-    double val2=pow(track.Distance(l2),2);
+      double val2=pow(track.Distance(l2),2);
       chi2+=TMath::Min(val1,val2);
     }
   }
@@ -151,6 +150,14 @@ double AnalyzerCore::GetMaximum(TGraphAsymmErrors *a){
   return maxval;
 
 }
+int AnalyzerCore::GetTDCCount(TString substr) const {
+  int count=0;
+  for(int i=0;i<NWIRES;i++)
+    if(GetWireName(i).Contains(substr))
+      count+=GetTDC(i)->size();
+  return count;
+} 
+
 Line* AnalyzerCore::GetTrack(TString algorithm){
   Line* track=NULL;
   auto it=fTracks.find(algorithm);
@@ -420,11 +427,17 @@ int AnalyzerCore::SetupConfig(TString configname){
       s.ReplaceAll("\t"," ");
       if(s==""||s.Contains(TRegexp("^[\t ]*#"))) continue;
       vector<TString> num=Split(s," ");
-      if(num.size()!=7){
+      if(num.size()<7){
 	cout<<"[AnalyzerCore::SetupConfig] Wrong wire.txt format"<<endl;
 	return -1;
       }
       GetWire(num[0].Atoi())->SetXYZXYZ(num[1].Atof(),num[2].Atof(),num[3].Atof(),num[4].Atof(),num[5].Atof(),num[6].Atof());
+      if(num.size()>7){
+	TString onoff=num[7];
+	onoff.ToUpper();
+	if(onoff=="OFF"||onoff=="0"||onoff=="FALSE")
+	  fChain->SetBranchStatus(GetWireName(num[0].Atoi()),false);
+      }
     }
     cout<<"[AnalyzerCore::SetupConfig] Setup wire alignment"<<endl;    
   }else{

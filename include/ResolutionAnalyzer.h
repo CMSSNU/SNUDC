@@ -6,6 +6,7 @@
 class ResolutionAnalyzer : public AnalyzerCore {
  public:
   virtual void Loop();
+  virtual bool IsGolden() const;
 };
 
 #endif
