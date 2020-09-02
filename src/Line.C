@@ -5,6 +5,11 @@
 
 ClassImp(Line);
 
+Line::Line(){
+  SetXYZ(0,0,0);
+  fTheta=0; fPhi=0;
+}
+  
 Line::Line(double x,double y,double z,double theta,double phi){
   SetXYZ(x,y,z);
   fTheta=theta; fPhi=phi;

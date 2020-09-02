@@ -6,14 +6,14 @@
 void ResolutionAnalyzer::ExecuteEvent(){
   RemoveInvalidHit();
   Line* track=NULL;
-  track=GetTrack("TDC");
   bool golden=IsGolden();
-  if(track){
-    for(int i=0;i<NWIRES;i++){
+  for(int i=0;i<NWIRES;i++){
+    track=GetTrack("TDC_no_"+GetWireName(i)(0,2));
+    if(track){
       if(GetTDC(i)->size()){
 	double maxdriftlength=6;
 	double scale=1;
-	if(GetWireName(i).BeginsWith("x")) scale=8.5/6;
+	if(!GetWireName(i).BeginsWith("x")) scale=8.5/6;
 	
 	double z=GetWire(i)->Z();
 	TVector3 track_point=track->PointWithZ(z);	
@@ -31,13 +31,11 @@ void ResolutionAnalyzer::ExecuteEvent(){
 	}
       }
     }
-  }
-  track=GetTrack("WireOnly");
-  if(track){
-    for(int i=0;i<NWIRES;i++){
+    track=GetTrack("WireOnly_no_"+GetWireName(i)(0,2));
+    if(track){
       if(GetTDC(i)->size()){
 	double scale=1;
-	if(GetWireName(i).BeginsWith("x")) scale=8.5/6;
+	if(!GetWireName(i).BeginsWith("x")) scale=8.5/6;
 	
 	double z=GetWire(i)->Z();
 	TVector3 track_point=track->PointWithZ(z);	
@@ -54,6 +52,25 @@ void ResolutionAnalyzer::ExecuteEvent(){
     }
   }
 }
+Line* ResolutionAnalyzer::ReconstructTrack(TString algorithm){
+  Line* track=NULL;
+  if(algorithm.Contains(TRegexp("_no_[xuv][0-9]"))){
+    TString layer=algorithm(TRegexp("[xuv][0-9]$"));
+    vector<vector<int>> temp;
+    for(int i=0;i<16;i++){
+      int iw=GetWireNumber(layer+"_0")+i;
+      temp.push_back(*GetTDC(iw));
+      GetTDC(iw)->clear();
+    }
+    track=AnalyzerCore::ReconstructTrack(Replace(algorithm,"_no_"+layer,""));
+    for(int i=0;i<16;i++){
+      int iw=GetWireNumber(layer+"_0")+i;
+      *GetTDC(iw)=temp[i];
+    }
+  }else track=AnalyzerCore::ReconstructTrack(algorithm);
+  return track;
+}
+    
 
 bool ResolutionAnalyzer::IsGolden() const {
   vector<TString> layers={"x3","u3","v3","x4","u4","v4"};

@@ -1,4 +1,8 @@
 #!/bin/bash
+if hostname|grep -q tamsa;then
+    source /cvmfs/sft.cern.ch/lcg/views/ROOT-latest/x86_64-centos7-gcc48-opt/setup.sh
+    source /cvmfs/sft.cern.ch/lcg/app/releases/ROOT/6.18.02/x86_64-centos7-gcc48-opt/bin/thisroot.sh
+fi
 which root &> /dev/null || {
     if cat /etc/*release|grep -q "Ubuntu 18";then
 	source /cvmfs/sft.cern.ch/lcg/app/releases/ROOT/6.22.02/x86_64-ubuntu18-gcc75-opt/bin/thisroot.sh
@@ -22,6 +26,7 @@ else
     SNUDC_DATA_PATH=$SNUDC_WORKING_DIR/rootfiles/
 fi
 export SNUDC_DATA_PATH
+export SNUDC_OUTPUT_PATH=$SNUDC_WORKING_DIR/output/
 export SNUDC_PLOT_PATH=$SNUDC_WORKING_DIR/plots/
 export ROOT_INCLUDE_PATH=$SNUDC_WORKING_DIR/include:$ROOT_INCLUDE_PATH
 export LD_LIBRARY_PATH=$SNUDC_WORKING_DIR/lib:$LD_LIBRARY_PATH

@@ -56,48 +56,61 @@ void AnalyzerCore::FillHist(TString histname, double value, double weight, int n
   this_hist->Fill(value, weight);
 }
 
-double AnalyzerCore::FunctionWireOnly(const double *par) const{
-  double x=par[0];
-  double y=par[1];
-  double z=0;
-  double theta=par[2];
-  double phi=par[3];
-  Line track(x,y,z,theta,phi);
+double AnalyzerCore::FunctionQuick(const double *par) const{
+  Line track(par[0],par[1],0,par[2],par[3]);
   double chi2=0;
   for(int i=0;i<NWIRES;i++){
-    if(GetTDC(i)->size())
-      chi2+=pow(track.Distance(*GetWire(i))/sqrt(12)/6,2);
+    if(GetTDC(i)->size()){
+      chi2+=pow(track.Distance(*GetWire(i)),2);
+    }
+  }
+  return chi2;
+}
+double AnalyzerCore::FunctionWireOnly(const double *par) const{
+  Line track(par[0],par[1],0,par[2],par[3]);
+  double chi2=0;
+  int layercount[12]={};
+  for(int l=0;l<12;l++)
+    for(int w=0;w<16;w++)
+      if(GetTDC(w+16*l)->size()) layercount[l]++;
+      
+  for(int i=0;i<NWIRES;i++){
+    if(GetTDC(i)->size()){
+      chi2+=pow(track.Distance(*GetWire(i))/sqrt(12)*12,2);
+    }
   }
   return chi2;
 }
 
 double AnalyzerCore::FunctionTDC(const double *par) const{
-  double x=par[0];
-  double y=par[1];
-  double z=0;
-  double theta=par[2];
-  double phi=par[3];
-  Line track(x,y,z,theta,phi);
+  Line track(par[0],par[1],0,par[2],par[3]);
   double chi2=0;
-  for(int i=0;i<NWIRES;i++){
-    if(GetTDC(i)->size()){
-      Line l1=*GetWire(i);
-      Line l2=*GetWire(i);
-      TString axis=GetWireName(i)(0);
-      double length=GetDriftLength(i,GetTDC(i)->at(0));
-      if(axis=="x"){
-	l1.SetY(l1.Y()+6*length);
-	l2.SetY(l2.Y()-6*length);
-      }else{
-	l1.SetY(l1.Y()+8.5*length);
-	l2.SetY(l2.Y()-8.5*length);
+  for(int l=0;l<12;l++){
+    double this_chi2=99999;
+    for(int w=0;w<16;w++){
+      int i=16*l+w;
+      if(GetTDC(i)->size()){
+	Line l1=*GetWire(i);
+	Line l2=*GetWire(i);
+	TString axis=GetWireName(i)(0);
+	double length=GetDriftLength(i,GetTDC(i)->at(0));
+	if(axis=="x"){
+	  l1.SetY(l1.Y()+6*length);
+	  l2.SetY(l2.Y()-6*length);
+	}else{
+	  l1.SetY(l1.Y()+8.5*length);
+	  l2.SetY(l2.Y()-8.5*length);
+	}
+	TVector3 track_point=track.PointWithZ(GetWire(i)->Z());
+	double val1=pow(l1.Distance(track_point),2);
+	double val2=pow(l2.Distance(track_point),2);
+	double val=TMath::Min(val1,val2);
+	if(val<this_chi2) this_chi2=val;
       }
-      TVector3 track_point=track.PointWithZ(GetWire(i)->Z());
-      double val1=pow(l1.Distance(track_point),2);
-      double val2=pow(l2.Distance(track_point),2);
-      chi2+=TMath::Min(val1,val2);
     }
+    if(this_chi2!=99999) chi2+=this_chi2;
   }
+
   return chi2;
 }
 double AnalyzerCore::GetDriftLength(int n,double time) const {
@@ -109,7 +122,7 @@ double AnalyzerCore::GetDriftLength(int n,double time) const {
   int ibin=fTime2Length[n]->FindBin(time);
   int first=fTime2Length[n]->GetXaxis()->GetFirst();
   if(ibin<first) ibin=first;
-  int last=fTime2Length[n]->GetXaxis()->GetFirst();
+  int last=fTime2Length[n]->GetXaxis()->GetLast();
   if(ibin>last) ibin=last;
   return fTime2Length[n]->GetBinContent(ibin);
 }
@@ -169,8 +182,9 @@ double AnalyzerCore::GetMaximum(TGraphAsymmErrors *a){
 int AnalyzerCore::GetTDCCount(TString substr) const {
   int count=0;
   for(int i=0;i<NWIRES;i++)
-    if(GetWireName(i).Contains(substr))
-      count+=GetTDC(i)->size();
+    if(GetTDC(i)->size())
+      if(GetWireName(i).Contains(substr))
+	count+=GetTDC(i)->size();
   return count;
 } 
 
@@ -330,7 +344,7 @@ void AnalyzerCore::Loop(int nskip,int nevent,bool doProcessHist){
   for (Long64_t jentry=nskip; jentry<nentries;jentry++) {
     Long64_t ientry = LoadTree(jentry);
     if (ientry < 0) break;
-    if((jentry-nskip)%2000==0) cout<<jentry-nskip<<"/"<<nentries-nskip<<endl;
+    if((jentry-nskip)%fReportEvery==0) cout<<jentry-nskip<<"/"<<nentries-nskip<<endl;
     GetEntry(jentry);
     ExecuteEvent();
   }
@@ -365,32 +379,38 @@ TDirectory* AnalyzerCore::MakeTemporaryDirectory(){
 Line* AnalyzerCore::ReconstructTrack(TString algorithm){
   Line* track=NULL;
   ROOT::Math::Minimizer* minimizer=ROOT::Math::Factory::CreateMinimizer("Minuit2","Migrad");
-  if(algorithm=="WireOnly"){
-    track=new Line(0,0,0,0,0);
+  if(algorithm=="Quick"){
+    ROOT::Math::Functor f(this,&AnalyzerCore::FunctionQuick,4);
+    minimizer->SetFunction(f);
+    minimizer->SetVariable(0,"x0",0,0.1);
+    minimizer->SetVariable(1,"y0",0,0.1);
+    minimizer->SetVariable(2,"theta",0,0.1);
+    minimizer->SetVariable(3,"phi",0,0.1);
+    minimizer->Minimize();
+    const double *minimum=minimizer->X();
+    track=new Line(minimum[0],minimum[1],0,minimum[2],minimum[3]);    
+  }else if(algorithm=="WireOnly"){
+    Line* initial=GetTrack("Quick");
     ROOT::Math::Functor f(this,&AnalyzerCore::FunctionWireOnly,4);
     minimizer->SetFunction(f);
-    minimizer->SetVariable(0,"x0",0,0.1);
-    minimizer->SetVariable(1,"y0",0,0.1);
-    minimizer->SetVariable(2,"theta",0,0.1);
-    minimizer->SetVariable(3,"phi",0,0.1);
+    minimizer->SetVariable(0,"x0",initial->PointWithZ(0).X(),0.1);
+    minimizer->SetVariable(1,"y0",initial->PointWithZ(0).Y(),0.1);
+    minimizer->SetVariable(2,"theta",initial->Theta(),0.1);
+    minimizer->SetVariable(3,"phi",initial->Phi(),0.1);
     minimizer->Minimize();
     const double *minimum=minimizer->X();
-    track->SetXYZ(minimum[0],minimum[1],0);
-    track->SetTheta(minimum[2]);
-    track->SetPhi(minimum[3]);
+    track=new Line(minimum[0],minimum[1],0,minimum[2],minimum[3]);
   }else if(algorithm=="TDC"){
-    track=new Line(0,0,0,0,0);
+    Line* initial=GetTrack("Quick");
     ROOT::Math::Functor f(this,&AnalyzerCore::FunctionTDC,4);
     minimizer->SetFunction(f);
-    minimizer->SetVariable(0,"x0",0,0.1);
-    minimizer->SetVariable(1,"y0",0,0.1);
-    minimizer->SetVariable(2,"theta",0,0.1);
-    minimizer->SetVariable(3,"phi",0,0.1);
+    minimizer->SetVariable(0,"x0",initial->PointWithZ(0).X(),0.1);
+    minimizer->SetVariable(1,"y0",initial->PointWithZ(0).Y(),0.1);
+    minimizer->SetVariable(2,"theta",initial->Theta(),0.1);
+    minimizer->SetVariable(3,"phi",initial->Phi(),0.1);
     minimizer->Minimize();
     const double *minimum=minimizer->X();
-    track->SetXYZ(minimum[0],minimum[1],0);
-    track->SetTheta(minimum[2]);
-    track->SetPhi(minimum[3]);    
+    track=new Line(minimum[0],minimum[1],0,minimum[2],minimum[3]);
   }else{
     cout<<"[AnalyzerCore::ReconstructTrack] Unknown algorithm "<<algorithm<<endl;
   }

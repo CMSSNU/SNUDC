@@ -20,6 +20,7 @@ class Line : public TVector3 {
  public:
   double fTheta,fPhi;
   
+  Line();
   Line(double x,double y,double z,double theta,double phi);
   Line(double x1,double y1,double z1,double x2,double y2,double z2);
 

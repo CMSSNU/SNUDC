@@ -32,6 +32,7 @@ class AnalyzerCore : public SNUDCTree {
   TH1 *fTime2Length[NWIRES];
   map<TString,Line*> fTracks;
   TString fOutFileName;
+  int fReportEvery=1000;
   
   // == Debugging Mode
   bool debug = true;
@@ -58,6 +59,7 @@ class AnalyzerCore : public SNUDCTree {
   virtual void DrawWires(TString option="") const;
   virtual void ExecuteEvent();
   virtual void FillHist(TString histname, double value, double weight, int n_bin, double x_min, double x_max);
+  virtual double FunctionQuick(const double* par) const;
   virtual double FunctionWireOnly(const double* par) const;
   virtual double FunctionTDC(const double* par) const;
   virtual double GetDriftLength(int n,double time) const;

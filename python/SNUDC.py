@@ -56,8 +56,9 @@ error = run$(process).err
 log = condor.log
 executable = run.sh
 arguments = $(process)
+jobbatchname = {0}
 getenv = true
-''')
+'''.format(args.analyzer+"_"+args.config))
     condorjds.write("queue "+str(args.njob))
     condorjds.close()
     os.system("cd "+rundir+";condor_submit condor.jds;condor_wait condor.log")
@@ -73,7 +74,7 @@ processscript=open(rundir+"/process.C","w")
 processscript.write(
 '''{{
   {analyzer} a;
-  a.SetOutFileName("{analyzer}.root");
+  a.SetOutFileName("{analyzer}_{config}.root");
   a.SetupConfig("{config}");
   a.LoadHist("hist.root");
   a.ProcessHist();
@@ -81,4 +82,9 @@ processscript.write(
 }}
 '''.format(analyzer=args.analyzer,config=args.config))
 processscript.close()
-os.system("cd "+rundir+"; root -l -b -q process.C");
+os.system("cd "+rundir+"; root -l -b -q process.C > /dev/null");
+outdir=os.getenv("SNUDC_OUTPUT_PATH")
+os.system("mkdir -p "+outdir)
+outfilename=args.analyzer+"_"+args.config+".root"
+os.system("mv "+rundir+"/"+outfilename+" "+outdir)
+print("output = "+outdir+"/"+outfilename)
