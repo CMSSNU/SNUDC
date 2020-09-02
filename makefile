@@ -41,7 +41,7 @@ $(DICT_OBJ): $(DICT)
 
 $(DICT): $(HEADER_FILES) $(LINKDEF)
 	mkdir -p $(LIB_DIR)
-	$(ROOTCLING) -f $@ -rmf $(subst .so,.rootmap,$(LIB)) -rml $(notdir $(LIB)) -rml libTree.so -rml libHist.so -rml libGpad.so -rml libGraf3d.so -s $(LIB) $(notdir $^)
+	$(ROOTCLING) -f $@ -rmf $(subst .so,.rootmap,$(LIB)) -rml $(notdir $(LIB)) -rml libTree.so -rml libHist.so -rml libGpad.so -rml libGraf3d.so -rml libPhysics.so -s $(LIB) $(notdir $^)
 
 clean: check-env
 	rm -rf $(OBJ_DIR)

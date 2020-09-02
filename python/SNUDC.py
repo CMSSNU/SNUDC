@@ -15,11 +15,12 @@ parser.add_argument("-n","--njob",type=int,default=1)
 args =parser.parse_args()
 
 total_events=int(os.popen('echo "'+args.analyzer+' ANALYZER;ANALYZER.SetupConfig(\\"'+args.config+'\\");\ncout<<\\"ENTRIES \\"<<ANALYZER.GetEntries();\n.q"|root -l -b|grep ENTRIES|sed \'s/[^0-9]//g\'').read().strip())
-print("total events = "+str(total_events))
+print("Total Events = "+str(total_events))
 
 import random
 rundir=os.popen("echo $SNUDC_WORKING_DIR/run/$(date +%Y%m%d_%H%M%S_)"+str(random.randint(0,1000))).read().strip()
 os.system("mkdir -p "+rundir)
+print("Run Directory = "+rundir)
 
 shellscript=open(rundir+"/run.sh","w")
 shellscript.write(
@@ -42,23 +43,22 @@ for i in range(args.njob):
   {analyzer} a;
   a.SetOutFileName("hist{i}.root");
   a.SetupConfig("{config}");
-  a.Loop({nskip},{nevent});
+  a.Loop({nskip},{nevent},false);
 }}
 '''.format(analyzer=args.analyzer,config=args.config,nskip=nskip,nevent=nevent,i=i))
     rootscript.close()
     
-if os.system("which condor_status")==0:
-    consorjds=open(rundir+"/condor.jds","w")
+if os.system("which condor_status 2>&1 > /dev/null")==0:
+    condorjds=open(rundir+"/condor.jds","w")
     condorjds.write(
-'''
-output = run$(process).out
+'''output = run$(process).out
 error = run$(process).err
 log = condor.log
 executable = run.sh
 arguments = $(process)
 getenv = true
-queue
 ''')
+    condorjds.write("queue "+str(args.njob))
     condorjds.close()
     os.system("cd "+rundir+";condor_submit condor.jds;condor_wait condor.log")
 else:
@@ -68,4 +68,17 @@ else:
         procs+=[subprocess.Popen("cd "+rundir+"; ./run.sh "+str(i),shell=True)]
     for p in procs: p.wait()
     
-os.system("hadd -f "+args.analyzer+".root "+" ".join([rundir+"/hist"+str(i)+".root" for i in range(args.njob)]))
+os.system("hadd -f "+rundir+"/hist.root "+" ".join([rundir+"/hist"+str(i)+".root" for i in range(args.njob)]))
+processscript=open(rundir+"/process.C","w")
+processscript.write(
+'''{{
+  {analyzer} a;
+  a.SetOutFileName("{analyzer}.root");
+  a.SetupConfig("{config}");
+  a.LoadHist("hist.root");
+  a.ProcessHist();
+  a.WriteHist();
+}}
+'''.format(analyzer=args.analyzer,config=args.config))
+processscript.close()
+os.system("cd "+rundir+"; root -l -b -q process.C");

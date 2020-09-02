@@ -6,5 +6,6 @@
 class Time2Length:public AnalyzerCore{
  public:
   virtual void ExecuteEvent();
+  virtual void ProcessHist();
 };
 #endif

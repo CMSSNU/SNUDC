@@ -19,10 +19,15 @@ AnalyzerCore::~AnalyzerCore(){
   fTracks.clear();
 }
 
-void AnalyzerCore::DrawChamber() const {
-  TCanvas* c=new TCanvas;
+TCanvas* AnalyzerCore::DrawChamber() const {
+  TCanvas *c=new TCanvas;
+  double rmin[]={-300,-300,-300};
+  double rmax[]={300,300,300};
+  TView3D* view=new TView3D(1,rmin,rmax);
+  view->ShowAxis();
   TBRIK* chamber=new TBRIK(Form("chamber_run%d_event%d",run,event),"chamber","",95,260,135);
   chamber->Draw();
+  return c;
 }
 void AnalyzerCore::DrawWires(TString option) const {
   for(int i=0;i<NWIRES;i++){
@@ -297,7 +302,25 @@ TGraphAsymmErrors* AnalyzerCore::hist_to_graph(TH1D* hist, int n_skip_x_left, in
   return out;
 
 }
-void AnalyzerCore::Loop(int nskip,int nevent){
+void AnalyzerCore::LoadHist(TString filename){
+  TFile *f=new TFile(filename);
+  LoadHist(f);
+  f->Close();
+}
+
+void AnalyzerCore::LoadHist(TDirectory* dir){
+  for(const auto& key:*dir->GetListOfKeys()){
+    TObject* obj=((TKey*)key)->ReadObj();
+    if(obj->InheritsFrom("TDirectory")) LoadHist((TDirectory*)obj);
+    else if(obj->InheritsFrom("TH1")){
+      TH1* hist=(TH1*)obj;
+      hist->SetDirectory(0);
+      maphist[hist->GetName()]=hist;
+    }
+  } 
+}
+
+void AnalyzerCore::Loop(int nskip,int nevent,bool doProcessHist){
   if (fChain == 0) return;
   Long64_t nentries = GetEntries();
   if(nevent>-1){
@@ -311,7 +334,11 @@ void AnalyzerCore::Loop(int nskip,int nevent){
     GetEntry(jentry);
     ExecuteEvent();
   }
+  if(doProcessHist) ProcessHist();
   WriteHist();
+}
+
+void AnalyzerCore::ProcessHist(){
 }
 
 TDirectory* AnalyzerCore::MakeTemporaryDirectory(){

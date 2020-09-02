@@ -10,4 +10,14 @@ void Time2Length::ExecuteEvent(){
     }
   }
 }
+void Time2Length::ProcessHist(){
+  for(auto& it:maphist){
+    TH1* hist=it.second;
+    TH1* chist=hist->GetCumulative(true,"");
+    chist->Scale(1/chist->GetMaximum());
+    chist->SetDirectory(0);
+    it.second=chist;
+    delete hist;
+  }
+}
 #endif
