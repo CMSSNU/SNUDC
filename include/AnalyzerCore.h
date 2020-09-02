@@ -15,6 +15,7 @@
 #include "Math/Factory.h"
 #include "Math/Functor.h"
 #include "TBRIK.h"
+#include "TView3D.h"
 
 #include <fstream>
 
@@ -30,6 +31,7 @@ class AnalyzerCore : public SNUDCTree {
   Line *fWires[NWIRES];
   TH1 *fTime2Length[NWIRES];
   map<TString,Line*> fTracks;
+  TString fOutFileName;
   
   // == Debugging Mode
   bool debug = true;
@@ -52,8 +54,9 @@ class AnalyzerCore : public SNUDCTree {
   map<TString, std::vector<double> > map_syst_array;
   map<TString, std::vector<double> > map_syst_table;
 
-  virtual void DrawChamber() const;
+  virtual TCanvas* DrawChamber() const;
   virtual void DrawWires(TString option="") const;
+  virtual void ExecuteEvent();
   virtual void FillHist(TString histname, double value, double weight, int n_bin, double x_min, double x_max);
   virtual double FunctionWireOnly(const double* par) const;
   virtual double FunctionTDC(const double* par) const;
@@ -70,13 +73,19 @@ class AnalyzerCore : public SNUDCTree {
   TGraphAsymmErrors* hist_to_graph(TH1D* hist, bool YErrorZero=false);
   TGraphAsymmErrors* hist_to_graph(TH1D* hist, int n_skip_x_left);
   TGraphAsymmErrors* hist_to_graph(TH1D* hist, int n_skip_x_left, int n_x_shift, int i_x_shift);
+  virtual void LoadHist(TString filename);
+  virtual void LoadHist(TDirectory* dir);
+  virtual void Loop(int nskip,int nevent,bool doProcessHist);
+  virtual void ProcessHist();
   TDirectory* MakeTemporaryDirectory();
   virtual Line* ReconstructTrack(TString algorithm);
   void RemoveLargeError(TGraphAsymmErrors *a);
   static TString Replace(TString str,TString reg,TString repl);
   void ScaleGraph(TGraphAsymmErrors *a, double c);
+  virtual void SetOutFileName(TString outfilename) { fOutFileName=outfilename; }
+  virtual TString GetOutFileName() const { return fOutFileName; }
   virtual int SetupConfig(TString configname);
   static vector<TString> Split(TString s,TString del);
-  virtual void WriteHist(TFile *f=NULL);
+  virtual void WriteHist();
 };
 #endif

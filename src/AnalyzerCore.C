@@ -19,10 +19,15 @@ AnalyzerCore::~AnalyzerCore(){
   fTracks.clear();
 }
 
-void AnalyzerCore::DrawChamber() const {
-  TCanvas* c=new TCanvas;
+TCanvas* AnalyzerCore::DrawChamber() const {
+  TCanvas *c=new TCanvas;
+  double rmin[]={-300,-300,-300};
+  double rmax[]={300,300,300};
+  TView3D* view=new TView3D(1,rmin,rmax);
+  view->ShowAxis();
   TBRIK* chamber=new TBRIK(Form("chamber_run%d_event%d",run,event),"chamber","",95,260,135);
   chamber->Draw();
+  return c;
 }
 void AnalyzerCore::DrawWires(TString option) const {
   for(int i=0;i<NWIRES;i++){
@@ -31,9 +36,14 @@ void AnalyzerCore::DrawWires(TString option) const {
     TVector3 end=GetWire(i)->PointWithX(95);
     l->SetPoint(0,start.X(),start.Y(),start.Z());
     l->SetPoint(1,end.X(),end.Y(),end.Z());
-    if(option.Contains("all")) l->Draw();
-    else if(GetTDC(i)->size()) l->Draw();
+    if(fChain->GetBranchStatus(GetWireName(i))){
+      if(GetTDC(i)->size()) l->SetLineColor(2);
+      if(option.Contains("all")) l->Draw();
+      else if(GetTDC(i)->size()) l->Draw();
+    }
   }
+}
+void AnalyzerCore::ExecuteEvent(){  
 }
 void AnalyzerCore::FillHist(TString histname, double value, double weight, int n_bin, double x_min, double x_max){
   TH1 *this_hist = GetHist(histname);
@@ -81,9 +91,10 @@ double AnalyzerCore::FunctionTDC(const double *par) const{
       }else{
 	l1.SetY(l1.Y()+8.5*length);
 	l2.SetY(l2.Y()-8.5*length);
-      }	
-      double val1=pow(track.Distance(l1),2);
-      double val2=pow(track.Distance(l2),2);
+      }
+      TVector3 track_point=track.PointWithZ(GetWire(i)->Z());
+      double val1=pow(l1.Distance(track_point),2);
+      double val2=pow(l2.Distance(track_point),2);
       chi2+=TMath::Min(val1,val2);
     }
   }
@@ -95,8 +106,13 @@ double AnalyzerCore::GetDriftLength(int n,double time) const {
     cout<<"[AnalyzerCore::GetDriftLength] no Time2Length histogram"<<endl;
     return -999;
   }
-  return fTime2Length[n]->GetBinContent(fTime2Length[n]->FindBin(time));
-}   
+  int ibin=fTime2Length[n]->FindBin(time);
+  int first=fTime2Length[n]->GetXaxis()->GetFirst();
+  if(ibin<first) ibin=first;
+  int last=fTime2Length[n]->GetXaxis()->GetFirst();
+  if(ibin>last) ibin=last;
+  return fTime2Length[n]->GetBinContent(ibin);
+}
 
 int AnalyzerCore::GetEntry(long entry){
   for(auto& track:fTracks)
@@ -286,6 +302,44 @@ TGraphAsymmErrors* AnalyzerCore::hist_to_graph(TH1D* hist, int n_skip_x_left, in
   return out;
 
 }
+void AnalyzerCore::LoadHist(TString filename){
+  TFile *f=new TFile(filename);
+  LoadHist(f);
+  f->Close();
+}
+
+void AnalyzerCore::LoadHist(TDirectory* dir){
+  for(const auto& key:*dir->GetListOfKeys()){
+    TObject* obj=((TKey*)key)->ReadObj();
+    if(obj->InheritsFrom("TDirectory")) LoadHist((TDirectory*)obj);
+    else if(obj->InheritsFrom("TH1")){
+      TH1* hist=(TH1*)obj;
+      hist->SetDirectory(0);
+      maphist[hist->GetName()]=hist;
+    }
+  } 
+}
+
+void AnalyzerCore::Loop(int nskip,int nevent,bool doProcessHist){
+  if (fChain == 0) return;
+  Long64_t nentries = GetEntries();
+  if(nevent>-1){
+    if(nentries>nskip+nevent) nentries=nskip+nevent;
+  }
+
+  for (Long64_t jentry=nskip; jentry<nentries;jentry++) {
+    Long64_t ientry = LoadTree(jentry);
+    if (ientry < 0) break;
+    if((jentry-nskip)%2000==0) cout<<jentry-nskip<<"/"<<nentries-nskip<<endl;
+    GetEntry(jentry);
+    ExecuteEvent();
+  }
+  if(doProcessHist) ProcessHist();
+  WriteHist();
+}
+
+void AnalyzerCore::ProcessHist(){
+}
 
 TDirectory* AnalyzerCore::MakeTemporaryDirectory(){
 
@@ -454,6 +508,7 @@ int AnalyzerCore::SetupConfig(TString configname){
     cout<<"[AnalyzerCore::SetupConfig] Setup time2length histograms"<<endl;
     for(int i=0;i<NWIRES;i++){
       fTime2Length[i]=(TH1*)f->Get(GetWireName(i));
+      fTime2Length[i]->Scale(1/fTime2Length[i]->GetMaximum());
       fTime2Length[i]->SetDirectory(0);
     }
   } 
@@ -472,8 +527,11 @@ vector<TString> AnalyzerCore::Split(TString s,TString del){
   return out;
 }
 
-void AnalyzerCore::WriteHist(TFile *f){
-  if(!f) f=gFile;
+void AnalyzerCore::WriteHist(){
+  TFile *f=NULL;
+  if(fOutFileName=="") f=new TFile("hist.root","recreate");
+  else f=new TFile(fOutFileName,"recreate");
+
   for(const auto& it:maphist){
     TString this_fullname=it.second->GetName();
     TString this_name=this_fullname(this_fullname.Last('/')+1,this_fullname.Length());
@@ -486,5 +544,6 @@ void AnalyzerCore::WriteHist(TFile *f){
     it.second->Write(this_name);
     f->cd();
   }
+  f->Close();
 }
 #endif
