@@ -33,6 +33,9 @@ class AnalyzerCore : public SNUDCTree {
   map<TString,Line*> fTracks;
   TString fOutFileName;
   int fReportEvery=1000;
+  double fChamber_dx=95;
+  double fChamber_dy=260;
+  double fChamber_dz=135;
   
   // == Debugging Mode
   bool debug = true;
@@ -56,9 +59,11 @@ class AnalyzerCore : public SNUDCTree {
   map<TString, std::vector<double> > map_syst_table;
 
   virtual TCanvas* DrawChamber() const;
+  virtual TPolyLine3D* DrawTrack(TString algorithm);
   virtual void DrawWires(TString option="") const;
   virtual void ExecuteEvent();
   virtual void FillHist(TString histname, double value, double weight, int n_bin, double x_min, double x_max);
+  virtual void FillHist(TString histname, double value_x, double value_y, double weight, int n_bin, double x_min, double x_max, int n_bin_y, double y_min, double y_max);
   virtual double FunctionQuick(const double* par) const;
   virtual double FunctionWireOnly(const double* par) const;
   virtual double FunctionTDC(const double* par) const;
@@ -78,6 +83,7 @@ class AnalyzerCore : public SNUDCTree {
   virtual void LoadHist(TString filename);
   virtual void LoadHist(TDirectory* dir);
   virtual void Loop(int nskip,int nevent,bool doProcessHist);
+  virtual void PrintTDCCount() const;
   virtual void ProcessHist();
   TDirectory* MakeTemporaryDirectory();
   virtual Line* ReconstructTrack(TString algorithm);

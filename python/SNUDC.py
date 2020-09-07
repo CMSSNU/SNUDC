@@ -25,6 +25,7 @@ print("Run Directory = "+rundir)
 shellscript=open(rundir+"/run.sh","w")
 shellscript.write(
 '''#!/bin/bash
+ROOT_HIST=0
 root -l -b -q run${1}.C
 ''')
 shellscript.close()

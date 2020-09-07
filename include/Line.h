@@ -38,7 +38,7 @@ class Line : public TVector3 {
   virtual double Distance(const Line& line) const;
   virtual double Dot(const TVector3& q) const { return Vector().Dot(q); }
   virtual double Dot(const Line& l) const { return Vector().Dot(l.Vector()); }
-  virtual void Draw();
+  virtual TPolyLine3D* Draw();
   virtual double DrEtaPhi(const TVector3& q) const { return Vector().DrEtaPhi(q); }
   virtual double DrEtaPhi(const Line& l) const { return Vector().DrEtaPhi(l.Vector()); }
   virtual double Eta() const { return Vector().Eta(); }
@@ -46,8 +46,8 @@ class Line : public TVector3 {
   virtual TVector3 PointWithX(double x) const;
   virtual TVector3 PointWithY(double y) const;
   virtual TVector3 PointWithZ(double z) const;
-  virtual void SetPhi(double phi){fPhi=phi;}
-  virtual void SetTheta(double theta){fTheta=theta;}
+  virtual void SetPhi(double phi){fPhi=TMath::Sin(phi) > 0 ? TMath::ACos(TMath::Cos(phi)) : -TMath::ACos(TMath::Cos(phi));}
+  virtual void SetTheta(double theta){fTheta=TMath::ACos(TMath::Cos(theta));}
   virtual double Theta() const { return fTheta; }
   virtual double Phi() const { return fPhi; }
   virtual TVector3 Vector() const { return TVector3(cos(fPhi)*sin(fTheta),sin(fPhi)*sin(fTheta),cos(fTheta)); }
