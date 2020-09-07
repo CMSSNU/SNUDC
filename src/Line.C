@@ -5,20 +5,26 @@
 
 ClassImp(Line);
 
+Line::Line(){
+  SetXYZ(0,0,0);
+  fTheta=0; fPhi=0;
+}
+  
 Line::Line(double x,double y,double z,double theta,double phi){
   SetXYZ(x,y,z);
-  fTheta=theta; fPhi=phi;
+  SetTheta(theta); SetPhi(phi);
 }
 Line::Line(double x1,double y1,double z1,double x2,double y2,double z2){
   SetXYZXYZ(x1,y1,z1,x2,y2,z2);
 }
-void Line::Draw(){
+TPolyLine3D* Line::Draw(){
   TPolyLine3D* a=new TPolyLine3D(2);
   TVector3 start=Point(-1000);
   TVector3 end=Point(1000);
   a->SetPoint(0,start.X(),start.Y(),start.Z());
   a->SetPoint(1,end.X(),end.Y(),end.Z());
   a->Draw();
+  return a;
 }
 double Line::Distance(double x,double y,double z) const {
   return Distance(TVector3(x,y,z));

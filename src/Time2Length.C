@@ -11,13 +11,14 @@ void Time2Length::ExecuteEvent(){
   }
 }
 void Time2Length::ProcessHist(){
+  map<TString,TH1*> m;
   for(auto& it:maphist){
     TH1* hist=it.second;
-    TH1* chist=hist->GetCumulative(true,"");
+    TH1* chist=hist->GetCumulative();
     chist->Scale(1/chist->GetMaximum());
     chist->SetDirectory(0);
-    it.second=chist;
-    delete hist;
+    m[it.first+"_cumulative"]=chist;
   }
+  maphist.insert(m.begin(),m.end());
 }
 #endif

@@ -25,22 +25,39 @@ TCanvas* AnalyzerCore::DrawChamber() const {
   double rmax[]={300,300,300};
   TView3D* view=new TView3D(1,rmin,rmax);
   view->ShowAxis();
-  TBRIK* chamber=new TBRIK(Form("chamber_run%d_event%d",run,event),"chamber","",95,260,135);
+  TBRIK* chamber=new TBRIK(Form("chamber_run%d_event%d",run,event),"chamber","",fChamber_dx,fChamber_dy,fChamber_dz);
   chamber->Draw();
   return c;
 }
+TPolyLine3D* AnalyzerCore::DrawTrack(TString algorithm) {
+  Line* track=GetTrack(algorithm);
+  TPolyLine3D* line=track->Draw();
+  line->SetLineColor(3);
+  return line;
+}
 void AnalyzerCore::DrawWires(TString option) const {
+  option.ToLower();
   for(int i=0;i<NWIRES;i++){
+    bool draw=false;
     TPolyLine3D* l=new TPolyLine3D(2);
     TVector3 start=GetWire(i)->PointWithX(-95);
     TVector3 end=GetWire(i)->PointWithX(95);
     l->SetPoint(0,start.X(),start.Y(),start.Z());
     l->SetPoint(1,end.X(),end.Y(),end.Z());
+    if(option.Contains("all")) draw=true;
     if(fChain->GetBranchStatus(GetWireName(i))){
-      if(GetTDC(i)->size()) l->SetLineColor(2);
-      if(option.Contains("all")) l->Draw();
-      else if(GetTDC(i)->size()) l->Draw();
+      if(option.Contains("on")) draw=true;
+      l->SetLineColor(kBlack);
+      if(GetTDC(i)->size()){
+	draw=true;
+	l->SetLineColor(kRed);
+	l->SetLineWidth(2);
+      }
+    }else{
+      l->SetLineStyle(2);
+      l->SetLineColor(kGray);
     }
+    if(draw) l->Draw();
   }
 }
 void AnalyzerCore::ExecuteEvent(){  
@@ -55,49 +72,75 @@ void AnalyzerCore::FillHist(TString histname, double value, double weight, int n
 
   this_hist->Fill(value, weight);
 }
+void AnalyzerCore::FillHist(TString histname, double value_x, double value_y, double weight, int n_bin_x, double x_min, double x_max, int n_bin_y, double y_min, double y_max){
+  TH1 *this_hist = GetHist(histname);
+  if( !this_hist ){
+    this_hist = new TH2D(histname, "", n_bin_y, x_min, x_max, n_bin_y, y_min, y_max);
+    this_hist->SetDirectory(NULL);
+    maphist[histname] = this_hist;
+  }
+  if(!this_hist->InheritsFrom("TH2")){
+    cout<<"[AnalyzerCore::FillHist] "<<histname<<" already exist with different class"<<endl;
+    return;
+  }
+  ((TH2*)this_hist)->Fill(value_x, value_y, weight);
+}
 
-double AnalyzerCore::FunctionWireOnly(const double *par) const{
-  double x=par[0];
-  double y=par[1];
-  double z=0;
-  double theta=par[2];
-  double phi=par[3];
-  Line track(x,y,z,theta,phi);
+double AnalyzerCore::FunctionQuick(const double *par) const{
+  Line track(par[0],par[1],-fChamber_dz,par[2],par[3],fChamber_dz);
   double chi2=0;
   for(int i=0;i<NWIRES;i++){
-    if(GetTDC(i)->size())
-      chi2+=pow(track.Distance(*GetWire(i))/sqrt(12)/6,2);
+    if(GetTDC(i)->size()){
+      chi2+=pow(track.Distance(*GetWire(i)),2);
+    }
+  }
+  return chi2;
+}
+double AnalyzerCore::FunctionWireOnly(const double *par) const{
+  Line track(par[0],par[1],-fChamber_dz,par[2],par[3],fChamber_dz);
+  double chi2=0;
+  int layercount[12]={};
+  for(int l=0;l<12;l++)
+    for(int w=0;w<16;w++)
+      if(GetTDC(w+16*l)->size()) layercount[l]++;
+      
+  for(int i=0;i<NWIRES;i++){
+    if(GetTDC(i)->size()){
+      chi2+=pow(track.Distance(*GetWire(i))/sqrt(12)*12,2);
+    }
   }
   return chi2;
 }
 
 double AnalyzerCore::FunctionTDC(const double *par) const{
-  double x=par[0];
-  double y=par[1];
-  double z=0;
-  double theta=par[2];
-  double phi=par[3];
-  Line track(x,y,z,theta,phi);
+  Line track(par[0],par[1],-fChamber_dz,par[2],par[3],fChamber_dz);
   double chi2=0;
-  for(int i=0;i<NWIRES;i++){
-    if(GetTDC(i)->size()){
-      Line l1=*GetWire(i);
-      Line l2=*GetWire(i);
-      TString axis=GetWireName(i)(0);
-      double length=GetDriftLength(i,GetTDC(i)->at(0));
-      if(axis=="x"){
-	l1.SetY(l1.Y()+6*length);
-	l2.SetY(l2.Y()-6*length);
-      }else{
-	l1.SetY(l1.Y()+8.5*length);
-	l2.SetY(l2.Y()-8.5*length);
+  for(int l=0;l<12;l++){
+    double this_chi2=99999;
+    for(int w=0;w<16;w++){
+      int i=16*l+w;
+      if(GetTDC(i)->size()){
+	Line l1=*GetWire(i);
+	Line l2=*GetWire(i);
+	TString axis=GetWireName(i)(0);
+	double length=GetDriftLength(i,GetTDC(i)->at(0));
+	if(axis=="x"){
+	  l1.SetY(l1.Y()+6*length);
+	  l2.SetY(l2.Y()-6*length);
+	}else{
+	  l1.SetY(l1.Y()+8.5*length);
+	  l2.SetY(l2.Y()-8.5*length);
+	}
+	TVector3 track_point=track.PointWithZ(GetWire(i)->Z());
+	double val1=pow(l1.Distance(track_point),2);
+	double val2=pow(l2.Distance(track_point),2);
+	double val=TMath::Min(val1,val2);
+	if(val<this_chi2) this_chi2=val;
       }
-      TVector3 track_point=track.PointWithZ(GetWire(i)->Z());
-      double val1=pow(l1.Distance(track_point),2);
-      double val2=pow(l2.Distance(track_point),2);
-      chi2+=TMath::Min(val1,val2);
     }
+    if(this_chi2!=99999) chi2+=this_chi2;
   }
+
   return chi2;
 }
 double AnalyzerCore::GetDriftLength(int n,double time) const {
@@ -109,7 +152,7 @@ double AnalyzerCore::GetDriftLength(int n,double time) const {
   int ibin=fTime2Length[n]->FindBin(time);
   int first=fTime2Length[n]->GetXaxis()->GetFirst();
   if(ibin<first) ibin=first;
-  int last=fTime2Length[n]->GetXaxis()->GetFirst();
+  int last=fTime2Length[n]->GetXaxis()->GetLast();
   if(ibin>last) ibin=last;
   return fTime2Length[n]->GetBinContent(ibin);
 }
@@ -169,8 +212,9 @@ double AnalyzerCore::GetMaximum(TGraphAsymmErrors *a){
 int AnalyzerCore::GetTDCCount(TString substr) const {
   int count=0;
   for(int i=0;i<NWIRES;i++)
-    if(GetWireName(i).Contains(substr))
-      count+=GetTDC(i)->size();
+    if(GetTDC(i)->size())
+      if(GetWireName(i).Contains(substr))
+	count+=GetTDC(i)->size();
   return count;
 } 
 
@@ -330,14 +374,22 @@ void AnalyzerCore::Loop(int nskip,int nevent,bool doProcessHist){
   for (Long64_t jentry=nskip; jentry<nentries;jentry++) {
     Long64_t ientry = LoadTree(jentry);
     if (ientry < 0) break;
-    if((jentry-nskip)%2000==0) cout<<jentry-nskip<<"/"<<nentries-nskip<<endl;
+    if((jentry-nskip)%fReportEvery==0) cout<<jentry-nskip<<"/"<<nentries-nskip<<endl;
     GetEntry(jentry);
     ExecuteEvent();
   }
   if(doProcessHist) ProcessHist();
   WriteHist();
 }
-
+void AnalyzerCore::PrintTDCCount() const {
+  for(int l=0;l<12;l++){
+    cout<<GetWireName(16*l)(0,2)<<" ";
+    for(int w=0;w<16;w++){
+      cout<<GetTDC(16*l+w)->size()<<" ";
+    }
+    cout<<endl;
+  }
+}
 void AnalyzerCore::ProcessHist(){
 }
 
@@ -365,32 +417,38 @@ TDirectory* AnalyzerCore::MakeTemporaryDirectory(){
 Line* AnalyzerCore::ReconstructTrack(TString algorithm){
   Line* track=NULL;
   ROOT::Math::Minimizer* minimizer=ROOT::Math::Factory::CreateMinimizer("Minuit2","Migrad");
-  if(algorithm=="WireOnly"){
-    track=new Line(0,0,0,0,0);
+  if(algorithm=="Quick"){
+    ROOT::Math::Functor f(this,&AnalyzerCore::FunctionQuick,4);
+    minimizer->SetFunction(f);
+    minimizer->SetLimitedVariable(0,"x1",0,0.1,-fChamber_dx,fChamber_dx);
+    minimizer->SetLimitedVariable(1,"y1",0,0.1,-fChamber_dy,fChamber_dy);
+    minimizer->SetLimitedVariable(2,"x2",0,0.1,-fChamber_dx,fChamber_dx);
+    minimizer->SetLimitedVariable(3,"y2",0,0.1,-fChamber_dy,fChamber_dy);
+    minimizer->Minimize();
+    const double *minimum=minimizer->X();
+    track=new Line(minimum[0],minimum[1],-fChamber_dz,minimum[2],minimum[3],fChamber_dz);    
+  }else if(algorithm=="WireOnly"){
+    Line* initial=GetTrack("Quick");
     ROOT::Math::Functor f(this,&AnalyzerCore::FunctionWireOnly,4);
     minimizer->SetFunction(f);
-    minimizer->SetVariable(0,"x0",0,0.1);
-    minimizer->SetVariable(1,"y0",0,0.1);
-    minimizer->SetVariable(2,"theta",0,0.1);
-    minimizer->SetVariable(3,"phi",0,0.1);
+    minimizer->SetLimitedVariable(0,"x1",initial->PointWithZ(-fChamber_dz).X(),0.1,-fChamber_dx,fChamber_dx);
+    minimizer->SetLimitedVariable(1,"y1",initial->PointWithZ(-fChamber_dz).Y(),0.1,-fChamber_dy,fChamber_dy);
+    minimizer->SetLimitedVariable(2,"x2",initial->PointWithZ(+fChamber_dz).X(),0.1,-fChamber_dx,fChamber_dx);
+    minimizer->SetLimitedVariable(3,"y2",initial->PointWithZ(+fChamber_dz).Y(),0.1,-fChamber_dy,fChamber_dy);
     minimizer->Minimize();
     const double *minimum=minimizer->X();
-    track->SetXYZ(minimum[0],minimum[1],0);
-    track->SetTheta(minimum[2]);
-    track->SetPhi(minimum[3]);
+    track=new Line(minimum[0],minimum[1],-fChamber_dz,minimum[2],minimum[3],fChamber_dz);    
   }else if(algorithm=="TDC"){
-    track=new Line(0,0,0,0,0);
+    Line* initial=GetTrack("Quick");
     ROOT::Math::Functor f(this,&AnalyzerCore::FunctionTDC,4);
     minimizer->SetFunction(f);
-    minimizer->SetVariable(0,"x0",0,0.1);
-    minimizer->SetVariable(1,"y0",0,0.1);
-    minimizer->SetVariable(2,"theta",0,0.1);
-    minimizer->SetVariable(3,"phi",0,0.1);
+    minimizer->SetLimitedVariable(0,"x1",initial->PointWithZ(-fChamber_dz).X(),0.1,-fChamber_dx,fChamber_dx);
+    minimizer->SetLimitedVariable(1,"y1",initial->PointWithZ(-fChamber_dz).Y(),0.1,-fChamber_dy,fChamber_dy);
+    minimizer->SetLimitedVariable(2,"x2",initial->PointWithZ(+fChamber_dz).X(),0.1,-fChamber_dx,fChamber_dx);
+    minimizer->SetLimitedVariable(3,"y2",initial->PointWithZ(+fChamber_dz).Y(),0.1,-fChamber_dy,fChamber_dy);
     minimizer->Minimize();
     const double *minimum=minimizer->X();
-    track->SetXYZ(minimum[0],minimum[1],0);
-    track->SetTheta(minimum[2]);
-    track->SetPhi(minimum[3]);    
+    track=new Line(minimum[0],minimum[1],-fChamber_dz,minimum[2],minimum[3],fChamber_dz);    
   }else{
     cout<<"[AnalyzerCore::ReconstructTrack] Unknown algorithm "<<algorithm<<endl;
   }
@@ -507,7 +565,7 @@ int AnalyzerCore::SetupConfig(TString configname){
   }else{
     cout<<"[AnalyzerCore::SetupConfig] Setup time2length histograms"<<endl;
     for(int i=0;i<NWIRES;i++){
-      fTime2Length[i]=(TH1*)f->Get(GetWireName(i));
+      fTime2Length[i]=(TH1*)f->Get(GetWireName(i)+"_cumulative");
       fTime2Length[i]->Scale(1/fTime2Length[i]->GetMaximum());
       fTime2Length[i]->SetDirectory(0);
     }
